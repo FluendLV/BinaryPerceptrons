@@ -82,9 +82,12 @@ d2_x2 = train_1.drop(columns=['Tasks']).to_numpy()[:test_rows_to_select]
 
 # Fill TRAINING data for class 0 and class 1 objects. It is 80% of all class 0 and class 1 objects.
 dati = np.vstack((train.to_numpy()[:train_rows_to_select], train_1.to_numpy()[:train_rows_to_select]))
+print(dati)
+
 
 # Define classes for objects. The amount of classes objects shoud be equal (31:31, 15:15 etc..).
 classes = np.vstack((train_classes[:train_rows_to_select], train_classes_1[:train_rows_to_select])).flatten().tolist()
+print(classes)
 
 # Declare perceptron to sort Class 0 and Class 1 objects
 perc = Perceptrons(2)
@@ -115,14 +118,14 @@ plt.show()
 #################################################################################################################################
 
 # Class 0 data
-train = pd.read_csv("IMNT_DATASET_CLASS0.csv")
-train_classes = pd.read_csv("IMNT_DATASET_CLASS0.csv")
+train = pd.read_csv("IMNT_DATASET_CLASS1.csv")
+train_classes = pd.read_csv("IMNT_DATASET_CLASS1.csv")
 train = train.drop(columns=['Class', 'Issues'])
 train_classes = train_classes.drop(columns=['Tasks','Bugs','Issues'])
 
 # Class 1 data
-train_1 = pd.read_csv("IMNT_DATASET_CLASS1.csv")
-train_classes_1 = pd.read_csv("IMNT_DATASET_CLASS1.csv")
+train_1 = pd.read_csv("IMNT_DATASET_CLASS2.csv")
+train_classes_1 = pd.read_csv("IMNT_DATASET_CLASS2.csv")
 train_1 = train_1.drop(columns=['Class', 'Issues'])
 train_classes_1 = train_classes_1.drop(columns=['Tasks','Bugs','Issues'])
 
@@ -139,28 +142,31 @@ d2_x2 = train_1.drop(columns=['Tasks']).to_numpy()[:test_rows_to_select]
 
 
 dati = np.vstack((train.to_numpy()[:train_rows_to_select], train_1.to_numpy()[:train_rows_to_select]))
+print(dati)
+
+# Added -1 cuz it should always predict between 0 and 1 !!!
+classes = np.vstack((train_classes[:train_rows_to_select]-1, train_classes_1[:train_rows_to_select]-1)).flatten().tolist()
+print(classes)
 
 
-classes = np.vstack((train_classes[:train_rows_to_select], train_classes_1[:train_rows_to_select])).flatten().tolist()
 
-
-perc = Perceptrons(2)
+perc_1 = Perceptrons(2)
 
 for epoch in range(1000):
     for di in range(len(dati)):
-        perc.fit(dati[di], classes[di])
+        perc_1.fit(dati[di], classes[di])
         
-img = np.zeros((121, 121))
+img_1 = np.zeros((211, 211))
 
-for yi in range(121):
-    for xi in range(121):
-        img[yi][xi] = perc.predict([xi/10, yi/10])
+for yi in range(211):
+    for xi in range(211):
+        img_1[yi][xi] = perc_1.predict([xi/10, yi/10])
 
-plt.scatter(d1_x1, d1_x2, s=70, c='red', marker='o', linewidths=1, edgecolors='black', label='Class 0 (Easy Sprint)')
-plt.scatter(d2_x1, d2_x2, s=70, c='green', marker='o', linewidths=1, edgecolors='black', label='Class 1 (Medium Sprint)')
-plt.imshow(img, extent=[0,12,0,12], origin='lower')
+plt.scatter(d1_x1, d1_x2, s=70, c='green', marker='o', linewidths=1, edgecolors='black', label='Class 1 (Medium Sprint)')
+plt.scatter(d2_x1, d2_x2, s=70, c='blue', marker='o', linewidths=1, edgecolors='black', label='Class 2 (Hard Sprint)')
+plt.imshow(img_1, extent=[0,21,0,21], origin='lower')
 
-plt.title('Class 0 vs Class 1 clusterization')
+plt.title('Class 1 vs Class 2 clusterization')
 plt.legend(loc='upper left', bbox_to_anchor=(1, 0.5))
 
 
