@@ -29,7 +29,7 @@ def der_sigmoid(val):
     s = act_sigmoid(val)
     return s * (1 - s)
 
-lr = 0.1
+lr = 0.05
 
 class Perceptrons:
     def __init__(self, input_size: int):
@@ -150,21 +150,21 @@ print(classes)
 
 
 
-perc_1 = Perceptrons(2)
+perc = Perceptrons(2)
 
 for epoch in range(1000):
     for di in range(len(dati)):
-        perc_1.fit(dati[di], classes[di])
+        perc.fit(dati[di], classes[di])
         
-img_1 = np.zeros((211, 211))
+img = np.zeros((211, 211))
 
 for yi in range(211):
     for xi in range(211):
-        img_1[yi][xi] = perc_1.predict([xi/10, yi/10])
+        img[yi][xi] = perc.predict([xi/10, yi/10])
 
 plt.scatter(d1_x1, d1_x2, s=70, c='green', marker='o', linewidths=1, edgecolors='black', label='Class 1 (Medium Sprint)')
 plt.scatter(d2_x1, d2_x2, s=70, c='blue', marker='o', linewidths=1, edgecolors='black', label='Class 2 (Hard Sprint)')
-plt.imshow(img_1, extent=[0,21,0,21], origin='lower')
+plt.imshow(img, extent=[0,21,0,21], origin='lower')
 
 plt.title('Class 1 vs Class 2 clusterization')
 plt.legend(loc='upper left', bbox_to_anchor=(1, 0.5))
@@ -172,84 +172,52 @@ plt.legend(loc='upper left', bbox_to_anchor=(1, 0.5))
 
 plt.show()
 
+#################################################################################################################################
 
-d1_x1_1 = np.array([1,3,5])   #training the perceptron. d1 represents one class (class 0)
-d1_x2_1 = np.array([1,1,1])   
+train = pd.read_csv("IMNT_DATASET_CLASS0.csv")
+train_classes = pd.read_csv("IMNT_DATASET_CLASS0.csv")
+train = train.drop(columns=['Class', 'Issues'])
+train_classes = train_classes.drop(columns=['Tasks','Bugs','Issues'])
 
-d2_x1_1 = np.array([3,5,7])   #class 2
-d2_x2_1 = np.array([3,3,3])
+train_1 = pd.read_csv("IMNT_DATASET_CLASS2.csv")
+train_classes_1 = pd.read_csv("IMNT_DATASET_CLASS2.csv")
+train_1 = train_1.drop(columns=['Class', 'Issues'])
+train_classes_1 = train_classes_1.drop(columns=['Tasks','Bugs','Issues'])
 
-# dati_1 = [
-#     [1, 1],
-#     [3, 1],
-#     [5, 1],
-#     [3, 3],
-#     [5, 3],
-#     [7, 3]
-# ]
-# classes_1 = [
-#     0,
-#     0,
-#     0,
-#     1,
-#     1,
-#     1
-# ]
+test_rows_to_select = int(0.2 * len(train))
+train_rows_to_select= int(0.8 * len(train))
 
-# perc_1 = Perceptrons(2)
+d1_x1 = train.drop(columns=['Bugs']).to_numpy()[:test_rows_to_select]   
+d1_x2 = train.drop(columns=['Tasks']).to_numpy()[:test_rows_to_select]
 
-# for epoch in range(1000):
-#     for di in range(len(dati_1)):
-#         perc_1.fit(dati_1[di], classes_1[di])
+
+d2_x1 = train_1.drop(columns=['Bugs']).to_numpy()[:test_rows_to_select]   
+d2_x2 = train_1.drop(columns=['Tasks']).to_numpy()[:test_rows_to_select]
+
+# It is necessarry to slow down the learning rate because the gap between values is too big
+lr = 0.01
+
+dati = np.vstack((train.to_numpy()[:train_rows_to_select], train_1.to_numpy()[:train_rows_to_select]))
+classes = np.vstack((train_classes[:train_rows_to_select], train_classes_1[:train_rows_to_select])).flatten().tolist()
+
+perc = Perceptrons(2)
+
+for epoch in range(1000):
+    for di in range(len(dati)):
+        perc.fit(dati[di], classes[di])
         
-# img_1 = np.zeros((51, 81))
+img = np.zeros((211, 211))
 
-# for yi in range(51):
-#     for xi in range(81):
-#         img_1[yi][xi] = perc_1.predict([xi/10, yi/10])
+for yi in range(211):
+    for xi in range(211):
+        img[yi][xi] = perc.predict([xi/10, yi/10])
 
-# plt.scatter(d1_x1_1, d1_x2_1, s=70, c='red', marker='o', linewidths=1, edgecolors='black')
-# plt.scatter(d2_x1_1, d2_x2_1, s=70, c='green', marker='o', linewidths=1, edgecolors='black')
-# plt.imshow(img_1, extent=[0,8,0,5], origin='lower')
-# plt.show()
+plt.scatter(d1_x1, d1_x2, s=70, c='green', marker='o', linewidths=1, edgecolors='black', label='Class 0 (Easy Sprint)')
+plt.scatter(d2_x1, d2_x2, s=70, c='blue', marker='o', linewidths=1, edgecolors='black', label='Class 2 (Hard Sprint)')
+plt.imshow(img, extent=[0,21,0,21], origin='lower')
+
+plt.title('Class 0 vs Class 2 clusterization')
+plt.legend(loc='upper left', bbox_to_anchor=(1, 0.5))
 
 
-# d1_x1_2 = np.array([1,2,2])   #training the perceptron. d1 represents one class (class 0)
-# d1_x2_2 = np.array([4,4,5])   
-
-# d2_x1_2 = np.array([8,6,7])   #class 2
-# d2_x2_2 = np.array([1,2,1])
-
-# dati_2 = [
-#     [1, 4],
-#     [2, 4],
-#     [2, 5],
-#     [8, 1],
-#     [6, 2],
-#     [7, 1]
-# ]
-# classes_2 = [
-#     0,
-#     0,
-#     0,
-#     1,
-#     1,
-#     1
-# ]
-
-# perc_2 = Perceptrons(2)
-
-# for epoch in range(10000):
-#     for di in range(len(dati_2)):
-#         perc_2.fit(dati_2[di], classes_2[di])
-        
-# img_2 = np.zeros((51, 81))
-
-# for yi in range(51):
-#     for xi in range(81):
-#         img_2[yi][xi] = perc_2.predict([xi/10, yi/10])
-
-# plt.scatter(d1_x1_2, d1_x2_2, s=70, c='red', marker='o', linewidths=1, edgecolors='black')
-# plt.scatter(d2_x1_2, d2_x2_2, s=70, c='green', marker='o', linewidths=1, edgecolors='black')
-# plt.imshow(img_2, extent=[0,8,0,5], origin='lower')
-# plt.show()
+plt.show()
