@@ -1,328 +1,124 @@
-from matplotlib import pyplot as plt
 import numpy as np
-from math import exp
 import pandas as pd
+from math import exp
 
-w0 = 4.5
-w1 = 0.5
-w2 = 1
+# Load data from CSV file into a DataFrame
+df = pd.read_csv("IMNT_DATASET.csv")
+# Extracting the 'Tasks', 'Bugs', and 'Issues' columns as feature attributes
+attributes = df[['Tasks', 'Bugs', 'Issues']].values
+# Extracting the 'Class' column as class labels
+classes = df['Class'].values
+# Getting unique class values
+unique_classes = np.unique(classes)
 
-def perc_out(x1, x2):
-    z = -1 * w0 + x1 * w1 + x2 * w2
-    y = 1 / (1 + exp(-1 * z))
-    return y
+# Normalize the attributes
+# Subtracting mean (axis=0 ensures the mean of each column is taken) 
+# and dividing by standard deviation for each column respectively
+normalized_attributes = (attributes - attributes.mean(axis=0)) / attributes.std(axis=0)
 
-def act_step(val):
-    if val > 0:
-        return 1
-    else:
-        return 0
+# Shuffling data and splitting it into training and testing datasets
+indices = np.arange(len(attributes))
+np.random.shuffle(indices)
 
-def der_step(val):
-    return 1
+train_size = int(0.8 * len(attributes))
+train_indices = indices[:train_size]
+test_indices = indices[train_size:]
 
-def act_sigmoid(val):
-    return 1.0 / (1.0 + exp(-val))
+train_attributes = normalized_attributes[train_indices]
+train_classes = classes[train_indices]
 
-def der_sigmoid(val):
-    s = act_sigmoid(val)
-    return s * (1 - s)
+test_attributes = normalized_attributes[test_indices]
+test_classes = classes[test_indices]
 
-lr = 0.05
+# Defining the perceptron model
+lr = 0.2
 
-class Perceptrons:
+class Perceptron:
     def __init__(self, input_size: int):
-        self.w = np.zeros(input_size)
-        self.w0 = 0
-        self.grad = 0
+        self.w = np.zeros(input_size)  # Initialize weights
+        self.w0 = 0  # Bias term
+        self.grad = 0  # Gradient
     
     def predict(self, input_values):
-        net = np.dot(input_values, self.w)
-        net += self.w0
-        self.grad = der_sigmoid(net)
-        return act_sigmoid(net)
+        # Calculate the weighted sum
+        net = np.dot(input_values, self.w) + self.w0
+        # Calculate the gradient using derivative of sigmoid
+        self.grad = self.der_sigmoid(net)
+        # Return the predicted value (between 0 and 1)
+        return self.act_sigmoid(net)
 
     def fit(self, input_values, output_value):
+        # Predict the output for given input values
         y = self.predict(input_values)
+        # Calculate the error
         delta = output_value - y
         if delta != 0:
+            # Adjust weights and bias based on the error
             for i in range(len(self.w)):
                 self.w[i] += lr * delta * self.grad * input_values[i]
                 self.w0 += lr * delta * self.grad
 
-# Class 0 data
-train = pd.read_csv("IMNT_DATASET_CLASS0.csv")
-train_classes = pd.read_csv("IMNT_DATASET_CLASS0.csv")
-train = train.drop(columns=['Class', 'Issues'])
-train_classes = train_classes.drop(columns=['Tasks','Bugs','Issues'])
+    # Activation function: Sigmoid
+    def act_sigmoid(self, val):
+        return 1.0 / (1.0 + exp(-val))
 
-# Class 1 data
-train_1 = pd.read_csv("IMNT_DATASET_CLASS1.csv")
-train_classes_1 = pd.read_csv("IMNT_DATASET_CLASS1.csv")
-train_1 = train_1.drop(columns=['Class', 'Issues'])
-train_classes_1 = train_classes_1.drop(columns=['Tasks','Bugs','Issues'])
+    # Derivative of the sigmoid function
+    def der_sigmoid(self, val):
+        s = self.act_sigmoid(val)
+        return s * (1 - s)
+    
 
-# Divide data into test and train data with a ratio of 20 : 80
-test_rows_to_select = int(0.2 * len(train))
-train_rows_to_select = int(0.8 * len(train))
-
-# Filling test data arrays.
-d1_x1 = train.drop(columns=['Bugs']).to_numpy()[:test_rows_to_select]
-d1_x2 = train.drop(columns=['Tasks']).to_numpy()[:test_rows_to_select]
-
-d2_x1 = train_1.drop(columns=['Bugs']).to_numpy()[:test_rows_to_select]
-d2_x2 = train_1.drop(columns=['Tasks']).to_numpy()[:test_rows_to_select]
-
-dati = np.vstack((train.to_numpy()[:train_rows_to_select], train_1.to_numpy()[:train_rows_to_select]))
-
-classes = np.vstack((train_classes[:train_rows_to_select], train_classes_1[:train_rows_to_select])).flatten().tolist()
-
-perc = Perceptrons(2)
-
+# Training perceptrons for each unique class
+perceptrons = [Perceptron(3) for _ in unique_classes]
 for epoch in range(1000):
-    for di in range(len(dati)):
-        perc.fit(dati[di], classes[di])
+    for di in range(len(train_attributes)):
+        target_class = train_classes[di]
+        for i, uc in enumerate(unique_classes):
+            expected_output = 1 if target_class == uc else 0
+            perceptrons[i].fit(train_attributes[di], expected_output)
 
-img = np.zeros((121, 121))
+# Testing perceptrons and printing results
+for di in range(len(test_attributes)):
+    outputs = [perc.predict(test_attributes[di]) for perc in perceptrons]
+    predicted_class = unique_classes[np.argmax(outputs)]
+    original_data = attributes[test_indices[di]]
+    print(f"Object: {original_data}, Real class: {test_classes[di]}, Predicted class: {predicted_class}")
 
-for yi in range(121):
-    for xi in range(121):
-        img[yi][xi] = perc.predict([xi / 10, yi / 10])
+# Function to calculate RMSE and number of misclassifications
+def calculate_errors(attributes, classes, perceptrons):
+    sum_squared_errors = 0
+    misclassification_count = 0
+    for di in range(len(attributes)):
+        outputs = [perc.predict(attributes[di]) for perc in perceptrons]
+        predicted_class = unique_classes[np.argmax(outputs)]
+        actual_class = classes[di]
+        # Sum squared errors for RMSE
+        sum_squared_errors += (predicted_class - actual_class)**2
+        # Count misclassifications
+        if predicted_class != actual_class:
+            misclassification_count += 1
+    # Calculate RMSE
+    rmse = np.sqrt(sum_squared_errors / len(attributes))
+    return rmse, misclassification_count
 
-plt.scatter(d1_x1, d1_x2, s=70, c='red', marker='o', linewidths=1, edgecolors='black', label='Class 0 (Easy Sprint)')
-plt.scatter(d2_x1, d2_x2, s=70, c='green', marker='o', linewidths=1, edgecolors='black', label='Class 1 (Medium Sprint)')
-plt.imshow(img, extent=[0, 12, 0, 12], origin='lower')
+# Calculating and printing RMSE and number of misclassifications for training and testing datasets
+train_rmse, train_misclassified_count = calculate_errors(train_attributes, train_classes, perceptrons)
+test_rmse, test_misclassified_count = calculate_errors(test_attributes, test_classes, perceptrons)
 
-plt.title('Class 0 vs Class 1 clusterization')
-plt.legend(loc='upper left', bbox_to_anchor=(1, 0.5))
+print("\nTraining Data Metrics:")
+print(f"RMSE: {train_rmse:.3f}")
+print(f"Misclassified: {train_misclassified_count} out of {len(train_attributes)}")
 
-## THIS IS DONE BY ChatGPT
-# Initialize variables to store error metrics 
-train_rmse = 0
-test_rmse = 0
-train_misclassified = 0
-test_misclassified = 0
+print("\nTesting Data Metrics:")
+print(f"RMSE: {test_rmse:.3f}")
+print(f"Misclassified: {test_misclassified_count} out of {len(test_attributes)}")
 
-# Calculate error metrics for training data
-for di in range(len(dati)):
-    predicted_class = perc.predict(dati[di])
-    if classes[di] == 0:
-        train_rmse += (predicted_class - 0) ** 2
-        if round(predicted_class) != 0:
-            train_misclassified += 1
-    elif classes[di] == 1:
-        train_rmse += (predicted_class - 1) ** 2
-        if round(predicted_class) != 1:
-            train_misclassified += 1
+# Making a prediction for a new data point
+new_data = np.array([2, 3, 2])
+# Normalize the new data using the mean and standard deviation of the original dataset
+normalized_new_data = (new_data - attributes.mean(axis=0)) / attributes.std(axis=0)
+# Predict the class for the new data point
+outputs = [perc.predict(normalized_new_data) for perc in perceptrons]
+predicted_class = unique_classes[np.argmax(outputs)]
 
-train_rmse = np.sqrt(train_rmse / len(dati))
-
-# Calculate error metrics for test data (by GPT)
-for di in range(len(d1_x1)):
-    predicted_class = perc.predict([d1_x1[di][0], d1_x2[di][0]])
-    test_rmse += (predicted_class - 0) ** 2
-    if round(predicted_class) != 0:
-        test_misclassified += 1
-
-for di in range(len(d2_x1)):
-    predicted_class = perc.predict([d2_x1[di][0], d2_x2[di][0]])
-    test_rmse += (predicted_class - 1) ** 2
-    if round(predicted_class) != 1:
-        test_misclassified += 1
-
-test_rmse = np.sqrt(test_rmse / (len(d1_x1) + len(d2_x1)))
-
-print("CLASS 1 vs CLASS 0")
-print("Training RMSE:", train_rmse)
-print("Test RMSE:", test_rmse)
-print("Training Misclassified Count:", train_misclassified)
-print("Test Misclassified Count:", test_misclassified)
-
-plt.show()
-
-#################################################################################################################################
-
-# Class 0 data
-train = pd.read_csv("IMNT_DATASET_CLASS1.csv")
-train_classes = pd.read_csv("IMNT_DATASET_CLASS1.csv")
-train = train.drop(columns=['Class', 'Issues'])
-train_classes = train_classes.drop(columns=['Tasks','Bugs','Issues'])
-
-# Class 1 data
-train_1 = pd.read_csv("IMNT_DATASET_CLASS2.csv")
-train_classes_1 = pd.read_csv("IMNT_DATASET_CLASS2.csv")
-train_1 = train_1.drop(columns=['Class', 'Issues'])
-train_classes_1 = train_classes_1.drop(columns=['Tasks','Bugs','Issues'])
-
-# Devide data to test and train data with ratio 20 : 80
-test_rows_to_select = int(0.2 * len(train))
-train_rows_to_select= int(0.8 * len(train))
-
-d1_x1 = train.drop(columns=['Bugs']).to_numpy()[:test_rows_to_select]   
-d1_x2 = train.drop(columns=['Tasks']).to_numpy()[:test_rows_to_select]
-
-
-d2_x1 = train_1.drop(columns=['Bugs']).to_numpy()[:test_rows_to_select]   
-d2_x2 = train_1.drop(columns=['Tasks']).to_numpy()[:test_rows_to_select]
-
-
-dati = np.vstack((train.to_numpy()[:train_rows_to_select], train_1.to_numpy()[:train_rows_to_select]))
-
-# Added -1 cuz it should always predict between 0 and 1 !!!
-classes = np.vstack((train_classes[:train_rows_to_select]-1, train_classes_1[:train_rows_to_select]-1)).flatten().tolist()
-
-perc = Perceptrons(2)
-
-for epoch in range(1000):
-    for di in range(len(dati)):
-        perc.fit(dati[di], classes[di])
-        
-img = np.zeros((211, 211))
-
-for yi in range(211):
-    for xi in range(211):
-        img[yi][xi] = perc.predict([xi/10, yi/10])
-
-plt.scatter(d1_x1, d1_x2, s=70, c='green', marker='o', linewidths=1, edgecolors='black', label='Class 1 (Medium Sprint)')
-plt.scatter(d2_x1, d2_x2, s=70, c='blue', marker='o', linewidths=1, edgecolors='black', label='Class 2 (Hard Sprint)')
-plt.imshow(img, extent=[0,21,0,21], origin='lower')
-
-plt.title('Class 1 vs Class 2 clusterization')
-plt.legend(loc='upper left', bbox_to_anchor=(1, 0.5))
-
-## THIS IS DONE BY ChatGPT
-# Initialize variables to store error metrics
-train_rmse = 0
-test_rmse = 0
-train_misclassified = 0
-test_misclassified = 0
-
-# Calculate error metrics for training data
-for di in range(len(dati)):
-    predicted_class = perc.predict(dati[di])
-    if classes[di] == 0:
-        train_rmse += (predicted_class - 0) ** 2
-        if round(predicted_class) != 0:
-            train_misclassified += 1
-    elif classes[di] == 1:
-        train_rmse += (predicted_class - 1) ** 2
-        if round(predicted_class) != 1:
-            train_misclassified += 1
-
-train_rmse = np.sqrt(train_rmse / len(dati))
-
-# Calculate error metrics for test data
-for di in range(len(d1_x1)):
-    predicted_class = perc.predict([d1_x1[di][0], d1_x2[di][0]])
-    test_rmse += (predicted_class - 0) ** 2
-    if round(predicted_class) != 0:
-        test_misclassified += 1
-
-for di in range(len(d2_x1)):
-    predicted_class = perc.predict([d2_x1[di][0], d2_x2[di][0]])
-    test_rmse += (predicted_class - 1) ** 2
-    if round(predicted_class) != 1:
-        test_misclassified += 1
-
-test_rmse = np.sqrt(test_rmse / (len(d1_x1) + len(d2_x1)))
-print("CLASS 1 vs CLASS 2")
-print("Training RMSE:", train_rmse)
-print("Test RMSE:", test_rmse)
-print("Training Misclassified Count:", train_misclassified)
-print("Test Misclassified Count:", test_misclassified)
-
-
-
-plt.show()
-
-#################################################################################################################################
-
-train = pd.read_csv("IMNT_DATASET_CLASS0.csv")
-train_classes = pd.read_csv("IMNT_DATASET_CLASS0.csv")
-train = train.drop(columns=['Class', 'Issues'])
-train_classes = train_classes.drop(columns=['Tasks','Bugs','Issues'])
-
-train_1 = pd.read_csv("IMNT_DATASET_CLASS2.csv")
-train_classes_1 = pd.read_csv("IMNT_DATASET_CLASS2.csv")
-train_1 = train_1.drop(columns=['Class', 'Issues'])
-train_classes_1 = train_classes_1.drop(columns=['Tasks','Bugs','Issues'])
-
-test_rows_to_select = int(0.2 * len(train))
-train_rows_to_select= int(0.8 * len(train))
-
-d1_x1 = train.drop(columns=['Bugs']).to_numpy()[:test_rows_to_select]   
-d1_x2 = train.drop(columns=['Tasks']).to_numpy()[:test_rows_to_select]
-
-
-d2_x1 = train_1.drop(columns=['Bugs']).to_numpy()[:test_rows_to_select]   
-d2_x2 = train_1.drop(columns=['Tasks']).to_numpy()[:test_rows_to_select]
-
-# It is necessarry to slow down the learning rate because the gap between values is too big
-lr = 0.01
-
-dati = np.vstack((train.to_numpy()[:train_rows_to_select], train_1.to_numpy()[:train_rows_to_select]))
-classes = np.vstack((train_classes[:train_rows_to_select], train_classes_1[:train_rows_to_select])).flatten().tolist()
-
-perc = Perceptrons(2)
-
-for epoch in range(1000):
-    for di in range(len(dati)):
-        perc.fit(dati[di], classes[di])
-        
-img = np.zeros((211, 211))
-
-for yi in range(211):
-    for xi in range(211):
-        img[yi][xi] = perc.predict([xi/10, yi/10])
-
-plt.scatter(d1_x1, d1_x2, s=70, c='green', marker='o', linewidths=1, edgecolors='black', label='Class 0 (Easy Sprint)')
-plt.scatter(d2_x1, d2_x2, s=70, c='blue', marker='o', linewidths=1, edgecolors='black', label='Class 2 (Hard Sprint)')
-plt.imshow(img, extent=[0,21,0,21], origin='lower')
-
-plt.title('Class 0 vs Class 2 clusterization')
-plt.legend(loc='upper left', bbox_to_anchor=(1, 0.5))
-
-## THIS IS DONE BY ChatGPT
-# Initialize variables to store error metrics
-train_rmse = 0
-test_rmse = 0
-train_misclassified = 0
-test_misclassified = 0
-
-# Calculate error metrics for training data
-for di in range(len(dati)):
-    predicted_class = perc.predict(dati[di])
-    if classes[di] == 0:
-        train_rmse += (predicted_class - 0) ** 2
-        if round(predicted_class) != 0:
-            train_misclassified += 1
-    elif classes[di] == 1:
-        train_rmse += (predicted_class - 1) ** 2
-        if round(predicted_class) != 1:
-            train_misclassified += 1
-
-train_rmse = np.sqrt(train_rmse / len(dati))
-
-# Calculate error metrics for test data
-for di in range(len(d1_x1)):
-    predicted_class = perc.predict([d1_x1[di][0], d1_x2[di][0]])
-    test_rmse += (predicted_class - 0) ** 2
-    if round(predicted_class) != 0:
-        test_misclassified += 1
-
-for di in range(len(d2_x1)):
-    predicted_class = perc.predict([d2_x1[di][0], d2_x2[di][0]])
-    test_rmse += (predicted_class - 1) ** 2
-    if round(predicted_class) != 1:
-        test_misclassified += 1
-
-test_rmse = np.sqrt(test_rmse / (len(d1_x1) + len(d2_x1)))
-print("CLASS 0 vs CLASS 2")
-print("Training RMSE:", train_rmse)
-print("Test RMSE:", test_rmse)
-print("Training Misclassified Count:", train_misclassified)
-print("Test Misclassified Count:", test_misclassified)
-
-
-
-plt.show()
+print(f"For input {new_data}, predicted class is {predicted_class}")
